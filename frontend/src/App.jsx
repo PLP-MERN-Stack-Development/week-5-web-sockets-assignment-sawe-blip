@@ -1,5 +1,4 @@
-// App.jsx
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSocket } from "./socket";
 
 export default function App() {
@@ -16,118 +15,109 @@ export default function App() {
   } = useSocket();
 
   const [username, setUsername] = useState("");
-  const [message, setMessage] = useState("");
-  const [privateMessage, setPrivateMessage] = useState("");
-  const [privateRecipient, setPrivateRecipient] = useState("");
+  const [messageInput, setMessageInput] = useState("");
+  const [unreadCount, setUnreadCount] = useState(0);
 
-  const handleConnect = () => {
+  // Play sound on new message
+  const playSound = () => {
+    const audio = new Audio('/notification.mp3'); // Ensure /public/notification.mp3 exists
+    audio.play().catch((err) => console.error("Audio play failed:", err));
+  };
+
+  // Request browser notification permission
+  useEffect(() => {
+    if (Notification.permission !== 'granted') {
+      Notification.requestPermission();
+    }
+  }, []);
+
+  // Update unread count + play sound + browser notification
+  useEffect(() => {
+    if (messages.length > 0) {
+      const last = messages[messages.length - 1];
+
+      // Don't count own messages as unread
+      if (last.sender !== username) {
+        setUnreadCount(prev => prev + 1);
+
+        // Play notification sound
+        playSound();
+
+        // Browser notification
+        if (Notification.permission === 'granted') {
+          new Notification('New Message', {
+            body: `${last.sender}: ${last.message}`,
+          });
+        }
+      }
+    }
+  }, [messages]);
+
+  const handleJoin = () => {
     if (username.trim()) {
       connect(username);
-    } else {
-      alert("Please enter a username");
     }
   };
 
-  const handleSend = (e) => {
-    e.preventDefault();
-    if (message.trim()) {
-      sendMessage(message);
-      setMessage("");
+  const handleSend = () => {
+    if (messageInput.trim()) {
+      sendMessage(messageInput);
+      setMessageInput("");
       setTyping(false);
     }
   };
 
-  const handlePrivateSend = (e) => {
-    e.preventDefault();
-    if (privateMessage.trim() && privateRecipient) {
-      sendPrivateMessage(privateRecipient, privateMessage);
-      setPrivateMessage("");
-    }
-  };
-
-  const handleTyping = (e) => {
-    setMessage(e.target.value);
-    setTyping(e.target.value.length > 0);
-  };
-
   return (
-    <div style={{ padding: "20px" }}>
+    <div>
       {!isConnected ? (
         <div>
-          <h2>Join Chat</h2>
           <input
-            type="text"
             placeholder="Enter username"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
           />
-          <button onClick={handleConnect}>Join</button>
+          <button onClick={handleJoin}>Join Chat</button>
         </div>
       ) : (
         <div>
-          <h2>Chat Room</h2>
-          <button onClick={disconnect}>Leave</button>
-
-          <div style={{ marginTop: "10px" }}>
-            <h3>Users Online</h3>
-            <ul>
-              {users.map((u) => (
-                <li key={u.id}>
-                  {u.username} {u.id === privateRecipient ? "(Private selected)" : ""}
-                  <button onClick={() => setPrivateRecipient(u.id)}>Private</button>
-                </li>
-              ))}
-            </ul>
+          <div>
+            <p>Online users: {users.length}</p>
+            <p>Unread messages: {unreadCount}</p>
+            <button onClick={disconnect}>Disconnect</button>
           </div>
 
           <div>
-            <h3>Messages</h3>
-            <ul>
-              {messages.map((msg) => (
-                <li key={msg.id}>
-                  {msg.system ? (
-                    <em>{msg.message}</em>
-                  ) : (
-                    <>
-                      <strong>{msg.sender}:</strong> {msg.message}
-                      {msg.isPrivate && <span style={{ color: "red" }}> [Private]</span>}
-                    </>
-                  )}
-                </li>
-              ))}
-            </ul>
+            {messages.map((msg) => (
+              <div key={msg.id}>
+                {msg.system ? (
+                  <em>{msg.message}</em>
+                ) : (
+                  <strong>{msg.sender}:</strong>
+                )}
+                {!msg.system && <span> {msg.message}</span>}
+              </div>
+            ))}
           </div>
 
-          <form onSubmit={handleSend}>
+          <div>
+            {typingUsers.length > 0 && (
+              <p>{typingUsers.join(", ")} typing...</p>
+            )}
             <input
-              type="text"
               placeholder="Type a message"
-              value={message}
-              onChange={handleTyping}
+              value={messageInput}
+              onChange={(e) => {
+                setMessageInput(e.target.value);
+                setTyping(e.target.value !== "");
+              }}
             />
-            <button type="submit">Send</button>
-          </form>
-
-          <form onSubmit={handlePrivateSend}>
-            <input
-              type="text"
-              placeholder="Type a private message"
-              value={privateMessage}
-              onChange={(e) => setPrivateMessage(e.target.value)}
-            />
-            <button type="submit" disabled={!privateRecipient}>
-              Send Private
-            </button>
-          </form>
-
-          {typingUsers.length > 0 && (
-            <p>
-              {typingUsers.join(", ")} {typingUsers.length > 1 ? "are" : "is"} typing...
-            </p>
-          )}
+            <button onClick={handleSend}>Send</button>
+          </div>
         </div>
       )}
     </div>
   );
 }
+
+
 

@@ -21,8 +21,28 @@ export const useSocket = () => {
   const [messages, setMessages] = useState([]);
   const [users, setUsers] = useState([]);
   const [typingUsers, setTypingUsers] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);  // 📌 NEW
 
-  // Connect to socket server
+  // Play notification sound
+  const playSound = () => {
+    const audio = new Audio('/notification.mp3'); // 🔔 Provide this file in public folder
+    audio.play().catch(err => console.log('Audio play error:', err));
+  };
+
+  // Show browser notification
+  const showNotification = (title, body) => {
+    if (Notification.permission === 'granted') {
+      new Notification(title, { body });
+    }
+  };
+
+  // Request notification permission on mount
+  useEffect(() => {
+    if (Notification.permission !== 'granted') {
+      Notification.requestPermission();
+    }
+  }, []);
+
   const connect = (username) => {
     socket.connect();
     if (username) {
@@ -30,55 +50,49 @@ export const useSocket = () => {
     }
   };
 
-  // Disconnect from socket server
   const disconnect = () => {
     socket.disconnect();
   };
 
-  // Send a message
   const sendMessage = (message) => {
     socket.emit('send_message', { message });
   };
 
-  // Send a private message
   const sendPrivateMessage = (to, message) => {
     socket.emit('private_message', { to, message });
   };
 
-  // Set typing status
   const setTyping = (isTyping) => {
     socket.emit('typing', isTyping);
   };
 
-  // Socket event listeners
   useEffect(() => {
-    // Connection events
-    const onConnect = () => {
-      setIsConnected(true);
-    };
+    const onConnect = () => setIsConnected(true);
+    const onDisconnect = () => setIsConnected(false);
 
-    const onDisconnect = () => {
-      setIsConnected(false);
-    };
-
-    // Message events
     const onReceiveMessage = (message) => {
       setLastMessage(message);
       setMessages((prev) => [...prev, message]);
+
+      // 🔔 Notify
+      playSound();
+      showNotification(`New message from ${message.sender}`, message.message);
+      setUnreadCount((count) => count + 1);
     };
 
     const onPrivateMessage = (message) => {
       setLastMessage(message);
       setMessages((prev) => [...prev, message]);
+
+      // 🔔 Notify
+      playSound();
+      showNotification(`Private message from ${message.sender}`, message.message);
+      setUnreadCount((count) => count + 1);
     };
 
-    // User events
-    const onUserList = (userList) => {
-      setUsers(userList);
-    };
+    const onUserList = (userList) => setUsers(userList);
 
     const onUserJoined = (user) => {
-      // You could add a system message here
       setMessages((prev) => [
         ...prev,
         {
@@ -91,7 +105,6 @@ export const useSocket = () => {
     };
 
     const onUserLeft = (user) => {
-      // You could add a system message here
       setMessages((prev) => [
         ...prev,
         {
@@ -103,12 +116,8 @@ export const useSocket = () => {
       ]);
     };
 
-    // Typing events
-    const onTypingUsers = (users) => {
-      setTypingUsers(users);
-    };
+    const onTypingUsers = (users) => setTypingUsers(users);
 
-    // Register event listeners
     socket.on('connect', onConnect);
     socket.on('disconnect', onDisconnect);
     socket.on('receive_message', onReceiveMessage);
@@ -118,7 +127,6 @@ export const useSocket = () => {
     socket.on('user_left', onUserLeft);
     socket.on('typing_users', onTypingUsers);
 
-    // Clean up event listeners
     return () => {
       socket.off('connect', onConnect);
       socket.off('disconnect', onDisconnect);
@@ -138,6 +146,7 @@ export const useSocket = () => {
     messages,
     users,
     typingUsers,
+    unreadCount, 
     connect,
     disconnect,
     sendMessage,
@@ -146,4 +155,4 @@ export const useSocket = () => {
   };
 };
 
-export default socket; 
+export default socket;
