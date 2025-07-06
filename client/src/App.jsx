@@ -1,64 +1,76 @@
-import { useSocket } from './socket';
 import { useState } from 'react';
+import { useSocket } from './socket';
 
-function App() {
-  const { connect, disconnect, isConnected, messages, sendMessage } = useSocket();
+export default function App() {
+  const { connect, disconnect, sendMessage, messages, users, typingUsers, setTyping } = useSocket();
   const [username, setUsername] = useState('');
-  const [message, setMessage] = useState('');
+  const [input, setInput] = useState('');
 
-  const handleConnect = () => {
+  const handleLogin = () => {
     if (username.trim()) {
       connect(username);
     }
   };
 
   const handleSend = () => {
-    if (message.trim()) {
-      sendMessage(message);
-      setMessage('');
+    if (input.trim()) {
+      sendMessage(input);
+      setInput('');
     }
   };
 
   return (
     <div>
-      <h1>Socket.io Chat</h1>
-      {!isConnected ? (
+      {!users.find(u => u.username === username) ? (
         <div>
           <input
-            type="text"
-            placeholder="Enter username"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
+            placeholder="Enter username"
           />
-          <button onClick={handleConnect}>Join Chat</button>
+          <button onClick={handleLogin}>Join Chat</button>
         </div>
       ) : (
         <div>
-          <p>Connected as {username}</p>
           <div>
+            <h3>Users Online:</h3>
+            <ul>
+              {users.map(u => (
+                <li key={u.id}>{u.username}</li>
+              ))}
+            </ul>
+          </div>
+          <div>
+            <h3>Chat</h3>
+            <div>
+              {messages.map(m => (
+                <p key={m.id}>
+                  <strong>{m.sender}</strong> [{new Date(m.timestamp).toLocaleTimeString()}]: {m.message}
+                </p>
+              ))}
+            </div>
+            <div>
+              {typingUsers.length > 0 && (
+                <p>{typingUsers.join(', ')} is typing...</p>
+              )}
+            </div>
             <input
-              type="text"
-              placeholder="Type a message"
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
+              value={input}
+              onChange={(e) => {
+                setInput(e.target.value);
+                setTyping(e.target.value.length > 0);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleSend();
+              }}
+              placeholder="Type a message..."
             />
             <button onClick={handleSend}>Send</button>
-            <button onClick={disconnect}>Disconnect</button>
+            <button onClick={disconnect}>Leave Chat</button>
           </div>
-          <ul>
-            {messages.map((msg) => (
-              <li key={msg.id}>
-                {msg.system
-                  ? <em>{msg.message}</em>
-                  : <strong>{msg.sender}:</strong>}{' '}
-                {msg.message}
-              </li>
-            ))}
-          </ul>
         </div>
       )}
     </div>
   );
 }
 
-export default App;
