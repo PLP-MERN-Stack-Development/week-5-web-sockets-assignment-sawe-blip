@@ -110,13 +110,29 @@ io.on('connection', (socket) => {
 });
 
 // API routes
+
+// Paginated messages
 app.get('/api/messages', (req, res) => {
-  res.json(messages);
+  const limit = parseInt(req.query.limit) || 20;  // default 20 messages
+  const offset = parseInt(req.query.offset) || 0; // default start at 0
+  const paginated = messages.slice().reverse().slice(offset, offset + limit);
+  res.json(paginated);
 });
 
+// Search messages
+app.get('/api/messages/search', (req, res) => {
+  const q = req.query.q?.toLowerCase() || '';
+  const results = messages.filter(m =>
+    (m.message || '').toLowerCase().includes(q)
+  );
+  res.json(results);
+});
+
+// Users
 app.get('/api/users', (req, res) => {
   res.json(Object.values(users));
 });
+
 
 // Root route
 app.get('/', (req, res) => {

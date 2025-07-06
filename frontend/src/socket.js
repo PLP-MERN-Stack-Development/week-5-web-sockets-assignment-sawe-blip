@@ -89,6 +89,10 @@ export const useSocket = () => {
       showNotification(`Private message from ${message.sender}`, message.message);
       setUnreadCount((count) => count + 1);
     };
+    socket.on('message_delivered', (data) => {
+  console.log('Message delivered:', data);
+});
+
 
     const onUserList = (userList) => setUsers(userList);
 
